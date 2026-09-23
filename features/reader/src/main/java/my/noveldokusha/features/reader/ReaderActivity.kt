@@ -63,6 +63,7 @@ import my.noveldokusha.core.utils.fadeIn
 import my.noveldokusha.data.AppRepository
 import my.noveldokusha.data.LibraryBooksRepository
 import my.noveldokusha.data.ScraperRepository
+import my.noveldokusha.tooling.sync.SyncStarter
 import my.noveldokusha.core.models.RegexRule
 import my.noveldokusha.settings.RegexCleanupSettingsViewModel
 import my.noveldokusha.features.reader.domain.ChapterState
@@ -129,6 +130,9 @@ class ReaderActivity : BaseActivity() {
 
     @Inject
     internal lateinit var scraperRepository: ScraperRepository
+
+    @Inject
+    internal lateinit var syncStarter: SyncStarter
 
     private var listIsScrolling = false
     // Время последнего события скролла: используется как watchdog для сброса
@@ -250,6 +254,13 @@ class ReaderActivity : BaseActivity() {
         readerViewHandlersActions.invalidate()
         if (isFinishing && novelReaderInitialized) {
             viewModel.onCloseManually()
+            // Cloud sync — enqueue an immediate unique sync. KEEP policy
+            // means: if app-launch also fired a sync 200ms ago, this
+            // request is dropped (good). The user's just-completed
+            // reading session (which bumped lastReadChapter /
+            // lastReadEpochTimeMilli) will be picked up by Step 1 of
+            // the upload delta batch on the NEXT worker run.
+            syncStarter.trigger()
         }
         super.onDestroy()
     }

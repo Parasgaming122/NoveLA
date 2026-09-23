@@ -425,6 +425,17 @@ internal fun databaseMigrations() = arrayOf(
             )
         """)
     },
+    migration(33) {
+        // v33 → v34: cloud-sync bookkeeping columns on the Book table.
+        //  * updatedAt (BIGINT) — epoch-millis of last LOCAL write.
+        //  * syncStatus (TEXT)  — "SYNCED" or "NOT_SYNCED".
+        // Defaults are chosen so that, on the first sync run after
+        // migration, every existing library book is treated as
+        // NOT_SYNCED and therefore uploaded to the cloud. This is
+        // the desired behavior for a freshly-installed sync feature.
+        it.addColumnIfNotExists("Book", "updatedAt", "INTEGER NOT NULL DEFAULT 0")
+        it.addColumnIfNotExists("Book", "syncStatus", "TEXT NOT NULL DEFAULT 'NOT_SYNCED'")
+    },
 )
 
 internal fun migration(vi: Int, migrate: (SupportSQLiteDatabase) -> Unit) =

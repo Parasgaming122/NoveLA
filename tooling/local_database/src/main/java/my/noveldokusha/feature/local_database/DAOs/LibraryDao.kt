@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import my.noveldokusha.feature.local_database.BookWithContext
 import my.noveldokusha.feature.local_database.tables.Book
 import my.noveldokusha.feature.local_database.tables.Chapter
+import my.noveldokusha.feature.local_database.tables.SyncStatus
 
 @Dao
 interface LibraryDao {
@@ -159,5 +160,33 @@ interface LibraryDao {
     /** Обновить дату последнего обновления книги, парсится с сайта источником */
     @Query("UPDATE Book SET lastUpdateDate = :lastUpdateDate WHERE url == :bookUrl")
     suspend fun updateLastUpdateDate(bookUrl: String, lastUpdateDate: String)
+
+    // ========================================================================
+    // === CLOUD-SYNC ADDITIONS (DB v34) ===
+    // ========================================================================
+
+    /** Returns every Book row whose [Book.syncStatus] is NOT_SYNCED. */
+    @Query("SELECT * FROM Book WHERE syncStatus = :notSynced AND inLibrary = 1")
+    suspend fun getAllNotSynced(notSynced: String = SyncStatus.NOT_SYNCED): List<Book>
+
+    /** Bulk-flips rows from NOT_SYNCED → SYNCED by url list. */
+    @Query("UPDATE Book SET syncStatus = :synced WHERE url IN (:urls)")
+    suspend fun markSynced(urls: List<String>, synced: String = SyncStatus.SYNCED)
+
+    /** Marks a single book as dirty (NOT_SYNCED) and stamps updatedAt. */
+    @Query("UPDATE Book SET syncStatus = :notSynced, updatedAt = :epochMs WHERE url = :bookUrl")
+    suspend fun markDirty(bookUrl: String, epochMs: Long, notSynced: String = SyncStatus.NOT_SYNCED)
+
+    /** Insert-or-replace a single book coming from the cloud. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFromCloud(book: Book)
+
+    /** Insert-or-replace a batch of books coming from the cloud. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFromCloud(books: List<Book>)
+
+    /** Diagnostic: count of pending uploads. */
+    @Query("SELECT COUNT(*) FROM Book WHERE syncStatus = :notSynced AND inLibrary = 1")
+    suspend fun countNotSynced(notSynced: String = SyncStatus.NOT_SYNCED): Int
 
 }

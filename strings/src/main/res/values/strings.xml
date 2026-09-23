@@ -856,4 +856,20 @@
     <string name="report_issue">Report an issue</string>
     <string name="report_issue_description">Create a bug report on GitHub</string>
 
+    <!-- Cloud Sync settings section (Supabase two-phone mirror) -->
+    <string name="sync_section_title">Cloud Sync</string>
+    <string name="sync_section_subtitle">Personal Supabase instance — sync library and reading progress across your phones.</string>
+    <string name="sync_enable_title">Enable cloud sync</string>
+    <string name="sync_enable_subtitle">When off, no network calls are made.</string>
+    <string name="sync_url_label">Supabase URL</string>
+    <string name="sync_url_placeholder">https://xyzcompany.supabase.co</string>
+    <string name="sync_anon_key_label">Supabase anon key</string>
+    <string name="sync_anon_key_placeholder">eyJhbGciOi...paste your anon key here</string>
+    <string name="sync_user_id_label">Installation ID (user bucket)</string>
+    <string name="sync_user_id_placeholder">auto-generated UUID — paste the SAME id on both phones</string>
+    <string name="sync_save_button">Save</string>
+    <string name="sync_now_button">Sync now</string>
+    <string name="sync_diagnostics_title">Diagnostics</string>
+    <string name="sync_refresh_pending_button">Refresh pending count</string>
+
 </resources>

@@ -21,6 +21,7 @@ dependencies {
     implementation(projects.tooling.backupRestore)
     implementation(projects.tooling.backupCreate)
     implementation(projects.tooling.applicationWorkers)
+    implementation(projects.tooling.sync)
 
     implementation(libs.compose.androidx.activity)
     implementation(libs.compose.material3.android)

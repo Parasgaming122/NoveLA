@@ -48,4 +48,23 @@ data class Book(
     // Тип контента книги: "NOVEL", "MANGA", "COMIC" и т.п. Пустая строка = NOVEL
     // (дефолт для всех источников, не заполняющих contentType).
     val contentType: String = "",
+    // === Cloud-sync bookkeeping (added in DB v34) ===
+    // updatedAt — epoch-millis of the last LOCAL write to this row.
+    // Used by SyncRepository's two-way symmetric merge to decide whether
+    // the cloud version is strictly newer and should overwrite local.
+    val updatedAt: Long = 0L,
+    // syncStatus — "SYNCED" or "NOT_SYNCED". Set to NOT_SYNCED by every
+    // local write; flipped back to SYNCED by the upload delta batch in
+    // SyncRepository after a successful .upsert() call.
+    val syncStatus: String = SyncStatus.NOT_SYNCED,
 ) : Parcelable
+
+/**
+ * Possible values for [Book.syncStatus]. Kept as a string constant set
+ * (rather than an enum) so that Room's TEXT column stays trivially
+ * migratable and SQL-queryable.
+ */
+object SyncStatus {
+    const val SYNCED = "SYNCED"
+    const val NOT_SYNCED = "NOT_SYNCED"
+}

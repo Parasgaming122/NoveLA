@@ -60,6 +60,7 @@ import my.noveldokusha.settings.sections.SettingsTheme
 import my.noveldokusha.settings.sections.SettingsRegexCleanup
 import my.noveldokusha.settings.sections.SettingsSupport
 import my.noveldokusha.settings.sections.SettingsAbout
+import my.noveldokusha.settings.sync.SettingsSync
 
 @Composable
 internal fun SettingsScreenBody(
@@ -225,6 +226,8 @@ internal fun SettingsScreenBody(
         )
         HorizontalDivider()
         LibraryAutoUpdate(state = state.libraryAutoUpdate)
+        HorizontalDivider()
+        SettingsSync()
         HorizontalDivider()
         AppUpdates(
             state = state.updateAppSetting,

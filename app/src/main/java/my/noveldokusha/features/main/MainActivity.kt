@@ -58,6 +58,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import my.noveldokusha.coreui.BaseActivity
 import my.noveldokusha.tooling.application_workers.setup.PeriodicWorkersInitializer
+import my.noveldokusha.tooling.sync.SyncStarter
 import my.noveldokusha.coreui.theme.AppTheme
 import my.noveldokusha.coreui.theme.DarkMode
 import my.noveldokusha.coreui.theme.Theme
@@ -96,6 +97,9 @@ open class MainActivity : BaseActivity() {
     lateinit var periodicWorkersInitializer: PeriodicWorkersInitializer
 
     @Inject
+    lateinit var syncStarter: SyncStarter
+
+    @Inject
     lateinit var navigationRoutes: NavigationRoutes
 
     private val requestNotificationPermissionLauncher = registerForActivityResult(
@@ -115,6 +119,10 @@ open class MainActivity : BaseActivity() {
             if (event == Lifecycle.Event.ON_RESUME && !initCalled) {
                 initCalled = true
                 periodicWorkersInitializer.init()
+                // Cloud sync — kick off a unique one-time sync on app launch.
+                // KEEP policy means: if a previous sync is still running, the
+                // new request is silently dropped (which is the desired behavior).
+                syncStarter.trigger()
             }
         })
 

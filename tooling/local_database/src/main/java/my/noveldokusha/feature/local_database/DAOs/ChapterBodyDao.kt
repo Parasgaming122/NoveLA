@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import my.noveldokusha.feature.local_database.tables.ChapterBody
+import my.noveldokusha.feature.local_database.tables.SyncStatus
 
 @Dao
 interface ChapterBodyDao {
@@ -65,6 +66,30 @@ interface ChapterBodyDao {
         WHERE Chapter.bookUrl = :bookUrl
     """)
     suspend fun countDownloadedBodies(bookUrl: String): Int
+
+    // ========================================================================
+    // === CLOUD-SYNC ADDITIONS (DB v35) ===
+    // ========================================================================
+
+    /** Returns every ChapterBody row whose [ChapterBody.syncStatus] is NOT_SYNCED. */
+    @Query("SELECT * FROM ChapterBody WHERE syncStatus = :notSynced")
+    suspend fun getAllNotSynced(notSynced: String = SyncStatus.NOT_SYNCED): List<ChapterBody>
+
+    /** Bulk-flips rows from NOT_SYNCED → SYNCED by url list. */
+    @Query("UPDATE ChapterBody SET syncStatus = :synced WHERE url IN (:urls)")
+    suspend fun markSynced(urls: List<String>, synced: String = SyncStatus.SYNCED)
+
+    /** Marks a single chapter body as dirty (NOT_SYNCED) and stamps updatedAt. */
+    @Query("UPDATE ChapterBody SET syncStatus = :notSynced, updatedAt = :epochMs WHERE url = :chapterUrl")
+    suspend fun markDirty(chapterUrl: String, epochMs: Long, notSynced: String = SyncStatus.NOT_SYNCED)
+
+    /** Insert-or-replace a batch of chapter bodies coming from the cloud. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFromCloud(books: List<ChapterBody>)
+
+    /** Diagnostic: count of pending uploads. */
+    @Query("SELECT COUNT(*) FROM ChapterBody WHERE syncStatus = :notSynced")
+    suspend fun countNotSynced(notSynced: String = SyncStatus.NOT_SYNCED): Int
 
     data class UrlSize(val url: String, val sizeBytes: Long)
 

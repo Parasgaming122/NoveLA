@@ -30,5 +30,6 @@ dependencies {
     implementation(libs.compose.coil)
 
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.timber)
 }

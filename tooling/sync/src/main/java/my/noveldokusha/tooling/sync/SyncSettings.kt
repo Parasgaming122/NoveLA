@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -52,6 +53,19 @@ class SyncSettings @Inject constructor(
     private val KEY_LAST_PUSH_EPOCH_MS = longPreferencesKey("last_push_epoch_ms")
     private val KEY_LAST_PULL_EPOCH_MS = longPreferencesKey("last_pull_epoch_ms")
 
+    // === v2 "flexible sync" preferences ===
+    // Periodic sync interval in minutes. One of 15 / 30 / 60 / 120.
+    // Default 60 minutes — reasonable middle ground.
+    private val KEY_SYNC_INTERVAL_MINUTES = intPreferencesKey("sync_interval_minutes")
+    // Toggle: should the sync engine also mirror downloaded chapter
+    // bodies (the actual text content of chapters) to the cloud? This
+    // can be MBs of data per phone, so default OFF.
+    private val KEY_INCLUDE_DOWNLOADED_CHAPTERS = booleanPreferencesKey("include_downloaded_chapters")
+    // Toggle: should the sync engine also mirror the ReadingHistory
+    // entries (the "History" tab in NoveLA)? Default ON — these rows
+    // are tiny and the History tab is a core navigation experience.
+    private val KEY_INCLUDE_READING_HISTORY = booleanPreferencesKey("include_reading_history")
+
     // -------------------------------------------------------------------------
     // Reactive reads — for the Compose settings screen
     // -------------------------------------------------------------------------
@@ -77,6 +91,22 @@ class SyncSettings @Inject constructor(
 
     val lastPushEpochMsFlow: Flow<Long> = dataStore.data.map { it[KEY_LAST_PUSH_EPOCH_MS] ?: 0L }
     val lastPullEpochMsFlow: Flow<Long> = dataStore.data.map { it[KEY_LAST_PULL_EPOCH_MS] ?: 0L }
+
+    // === v2 reactive reads ===
+    /** Reactive periodic-sync interval in minutes. Default 60. */
+    val syncIntervalMinutesFlow: Flow<Int> = dataStore.data.map {
+        it[KEY_SYNC_INTERVAL_MINUTES] ?: DEFAULT_SYNC_INTERVAL_MINUTES
+    }
+
+    /** Reactive flag: should downloaded chapter bodies be mirrored? */
+    val includeDownloadedChaptersFlow: Flow<Boolean> = dataStore.data.map {
+        it[KEY_INCLUDE_DOWNLOADED_CHAPTERS] ?: false
+    }
+
+    /** Reactive flag: should ReadingHistory rows be mirrored? */
+    val includeReadingHistoryFlow: Flow<Boolean> = dataStore.data.map {
+        it[KEY_INCLUDE_READING_HISTORY] ?: true
+    }
 
     // -------------------------------------------------------------------------
     // Suspend reads — for the sync engine itself (one-shot)
@@ -105,6 +135,14 @@ class SyncSettings @Inject constructor(
 
     suspend fun isSyncEnabled(): Boolean = syncEnabledFlow.first()
 
+    // === v2 suspend reads ===
+
+    suspend fun getSyncIntervalMinutes(): Int = syncIntervalMinutesFlow.first()
+
+    suspend fun includeDownloadedChapters(): Boolean = includeDownloadedChaptersFlow.first()
+
+    suspend fun includeReadingHistory(): Boolean = includeReadingHistoryFlow.first()
+
     // -------------------------------------------------------------------------
     // Suspend writes — called from the Compose settings screen VM
     // -------------------------------------------------------------------------
@@ -115,6 +153,17 @@ class SyncSettings @Inject constructor(
     suspend fun setSyncEnabled(value: Boolean) = dataStore.edit { it[KEY_SYNC_ENABLED] = value }
     suspend fun setLastPushEpochMs(value: Long) = dataStore.edit { it[KEY_LAST_PUSH_EPOCH_MS] = value }
     suspend fun setLastPullEpochMs(value: Long) = dataStore.edit { it[KEY_LAST_PULL_EPOCH_MS] = value }
+
+    // === v2 suspend writes ===
+    suspend fun setSyncIntervalMinutes(minutes: Int) = dataStore.edit {
+        it[KEY_SYNC_INTERVAL_MINUTES] = minutes.coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
+    }
+    suspend fun setIncludeDownloadedChapters(value: Boolean) = dataStore.edit {
+        it[KEY_INCLUDE_DOWNLOADED_CHAPTERS] = value
+    }
+    suspend fun setIncludeReadingHistory(value: Boolean) = dataStore.edit {
+        it[KEY_INCLUDE_READING_HISTORY] = value
+    }
 
     /**
      * Convenience accessor: returns true iff BOTH the URL and anon key
@@ -127,6 +176,15 @@ class SyncSettings @Inject constructor(
         val url = getSupabaseUrl()
         val key = getSupabaseAnonKey()
         return url.startsWith("http") && key.isNotBlank() && isSyncEnabled()
+    }
+
+    companion object {
+        // Allowed values for the periodic-sync interval. The settings
+        // UI uses this set to render the radio-button choices.
+        val ALLOWED_INTERVALS_MINUTES = listOf(15, 30, 60, 120)
+        const val DEFAULT_SYNC_INTERVAL_MINUTES = 60
+        const val MIN_INTERVAL_MINUTES = 15
+        const val MAX_INTERVAL_MINUTES = 120
     }
 }
 

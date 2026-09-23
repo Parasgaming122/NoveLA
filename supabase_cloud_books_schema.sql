@@ -110,7 +110,14 @@ CREATE POLICY cloud_books_anon_write_all
 -- ----------------------------------------------------------------------------
 -- 5. Helpful views (optional, for the Supabase dashboard)
 -- ----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.cloud_books_per_user AS
+-- SECURITY INVOKER is set so the view runs with the QUERYING user's
+-- permissions rather than the view owner's. This avoids the Supabase
+-- Advisor warning "View is defined with the SECURITY DEFINER property"
+-- and ensures the view inherits RLS context (e.g. if you ever tighten
+-- cloud_books RLS to per-user filtering, the view will also filter
+-- per-user).
+CREATE OR REPLACE VIEW public.cloud_books_per_user
+WITH (security_invoker = true) AS
     SELECT user_id, COUNT(*) AS row_count, MAX(updated_at) AS last_update
     FROM public.cloud_books
     GROUP BY user_id

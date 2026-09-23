@@ -54,14 +54,30 @@ abstract class SyncModule {
         @Singleton
         fun provideSyncRepository(
             libraryDao: my.noveldokusha.feature.local_database.DAOs.LibraryDao,
+            chapterBodyDao: my.noveldokusha.feature.local_database.DAOs.ChapterBodyDao,
+            readingHistoryDao: my.noveldokusha.feature.local_database.DAOs.ReadingHistoryDao,
             dynamicSupabaseProvider: DynamicSupabaseProvider,
             syncSettings: SyncSettings,
-        ): SyncRepository = SyncRepository(libraryDao, dynamicSupabaseProvider, syncSettings)
+        ): SyncRepository = SyncRepository(
+            libraryDao,
+            chapterBodyDao,
+            readingHistoryDao,
+            dynamicSupabaseProvider,
+            syncSettings,
+        )
 
         @Provides
         @Singleton
         fun provideSyncStarter(
             @ApplicationContext context: Context,
         ): SyncStarter = SyncStarter(context)
+
+        @Provides
+        @Singleton
+        fun provideSyncPeriodicInitializer(
+            @ApplicationContext context: Context,
+            syncSettings: SyncSettings,
+            appCoroutineScope: my.noveldokusha.core.AppCoroutineScope,
+        ): SyncPeriodicInitializer = SyncPeriodicInitializer(context, syncSettings, appCoroutineScope)
     }
 }

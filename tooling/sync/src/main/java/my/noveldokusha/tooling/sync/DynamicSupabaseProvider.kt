@@ -1,8 +1,8 @@
 package my.noveldokusha.tooling.sync
 
+import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
-import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,6 +33,14 @@ import javax.inject.Singleton
  * The OkHttp engine shares the same network stack already used
  * elsewhere in the app — no new transitive dependencies are pulled in
  * beyond the ones declared in libs.versions.toml.
+ *
+ * NOTE: this file does NOT use a `typealias` for [SupabaseClient].
+ * An earlier version declared `typealias SupabaseClient = ...` at the
+ * bottom, but Hilt's KSP processor (2.60.1) cannot process type
+ * aliases for types referenced in @Inject-constructable classes — it
+ * fails with `java.lang.IllegalStateException: Unsupported
+ * SupabaseClient` during `:tooling:sync:kspReleaseKotlin`. Using the
+ * imported type directly resolves the issue.
  */
 @Singleton
 class DynamicSupabaseProvider @Inject constructor(
@@ -47,7 +55,8 @@ class DynamicSupabaseProvider @Inject constructor(
      */
     private val buildMutex = Mutex()
 
-    @Volatile private var cached: SupabaseClientHandle? = null
+    @Volatile
+    private var cached: SupabaseClientHandle? = null
 
     /**
      * Returns a fully-configured [SupabaseClient], or `null` if the
@@ -107,35 +116,24 @@ class DynamicSupabaseProvider @Inject constructor(
             .retryOnConnectionFailure(true)
             .build()
 
-        // The Supabase Kotlin SDK 3.x takes an HttpClient with an engine.
-        // We hand it an OkHttp engine instance; the SDK wires its own
-        // auth/plugins around it.
-        val httpClient = HttpClient(OkHttp) {
-            engine { preconfigured = okHttpClient }
-        }
-
+        // Supabase Kotlin SDK 3.x: SupabaseClientBuilder.httpEngine takes
+        // an HttpClientEngine. The OkHttp engine factory creates one
+        // from an OkHttpConfig block, which can wrap a preconfigured
+        // OkHttpClient. We pass our preconfigured client to share
+        // timeouts / connection pooling across the SDK.
         return createSupabaseClient(
             supabaseUrl = supabaseUrl,
             supabaseKey = anonKey,
         ) {
             install(Postgrest)
-            this.httpClient = httpClient
+            httpEngine = OkHttp.create {
+                preconfigured = okHttpClient
+            }
         }
     }
-
-    // Lightweight aliases to keep imports out of the call sites.
-    /** Type alias to the actual SupabaseClient class. */
-    typealias SupabaseClient = io.github.jan.supabase.SupabaseClient
 
     private data class SupabaseClientHandle(
         val client: SupabaseClient,
         val signature: String,
     )
 }
-
-/**
- * Top-level alias so call sites can simply write
- * `DynamicSupabaseProvider.SupabaseClient`. Kept here (and not in a
- * separate file) because the type is purely an indirection for tests.
- */
-typealias SupabaseClient = io.github.jan.supabase.SupabaseClient

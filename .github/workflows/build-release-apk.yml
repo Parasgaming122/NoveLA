@@ -1,0 +1,95 @@
+# ============================================================================
+# Builds a SIGNED release APK. Requires repository secrets:
+#   - KEYSTORE_BASE64  (base64 of your .jks keystore file)
+#   - KEYSTORE_PASSWORD
+#   - KEY_ALIAS
+#   - KEY_PASSWORD
+#
+# Set these in your GitHub repo: Settings → Secrets and variables →
+# Actions → New repository secret.
+#
+# To generate a keystore locally:
+#   keytool -genkeypair -v -keystore novela.keystore \
+#     -alias novela -keyalg RSA -keysize 2048 -validity 10000 \
+#     -storepass <KEYSTORE_PASSWORD> -keypass <KEY_PASSWORD>
+#
+# Then base64 it for the secret:
+#   base64 -i novela.keystore > keystore.b64
+#   # copy the contents into the KEYSTORE_BASE64 secret
+# ============================================================================
+name: Build Release APK
+
+on:
+  push:
+    tags: [ 'v*' ]          # build on version tags like v1.0.0
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platforms;android-37.0
+            build-tools;37.0.0
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', 'gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > $HOME/novela.keystore
+          echo "KEYSTORE_FILE=$HOME/novela.keystore" >> $GITHUB_ENV
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          # Write a temporary custom.properties that the build.gradle.kts
+          # reads for signing config (see app/build.gradle.kts lines ~30-40).
+          cat > custom.properties <<EOF
+          storeFile=$KEYSTORE_FILE
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          ./gradlew :app:assembleRelease -PlocalPropertiesFilePath=custom.properties --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoveLA-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/*.apk
+          generate_release_notes: true

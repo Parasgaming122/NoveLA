@@ -436,6 +436,23 @@ internal fun databaseMigrations() = arrayOf(
         it.addColumnIfNotExists("Book", "updatedAt", "INTEGER NOT NULL DEFAULT 0")
         it.addColumnIfNotExists("Book", "syncStatus", "TEXT NOT NULL DEFAULT 'NOT_SYNCED'")
     },
+    migration(34) {
+        // v34 → v35: extend cloud-sync bookkeeping to ChapterBody and
+        // ReadingHistory tables — so that the "what to sync" toggles
+        // in the settings screen can mirror downloaded chapters and
+        // the History tab across phones.
+        //
+        //  * ChapterBody: chapter text snapshots are content-addressable
+        //    by URL, so the body itself never changes once downloaded.
+        //    updatedAt is still useful to compare "who pushed the more
+        //    recent copy" in case the user re-downloads a chapter.
+        //  * ReadingHistory: same pattern as Book — the row is mutated
+        //    every time the user reads, so updatedAt drives the merge.
+        it.addColumnIfNotExists("ChapterBody", "updatedAt", "INTEGER NOT NULL DEFAULT 0")
+        it.addColumnIfNotExists("ChapterBody", "syncStatus", "TEXT NOT NULL DEFAULT 'NOT_SYNCED'")
+        it.addColumnIfNotExists("ReadingHistory", "updatedAt", "INTEGER NOT NULL DEFAULT 0")
+        it.addColumnIfNotExists("ReadingHistory", "syncStatus", "TEXT NOT NULL DEFAULT 'NOT_SYNCED'")
+    },
 )
 
 internal fun migration(vi: Int, migrate: (SupportSQLiteDatabase) -> Unit) =
